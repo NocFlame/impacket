@@ -39,7 +39,7 @@ from threading import Thread
 
 
 class TargetsProcessor:
-    def __init__(self, targetListFile=None, singleTarget=None, protocolClients=None):
+    def __init__(self, targetListFile=None, singleTarget=None, protocolClients=None, localAdminMap=None):
         # Here we store the attacks that already finished, mostly the ones that have usernames, since the
         # other ones will never finish.
         self.finishedAttacks = []
@@ -51,7 +51,7 @@ class TargetsProcessor:
             self.filename = targetListFile
             self.originalTargets = []
             self.readTargets()
-
+        self.localAdminMap = localAdminMap
         self.candidates = [x for x in self.originalTargets]
 
     @staticmethod
@@ -107,6 +107,15 @@ class TargetsProcessor:
                 LOG.info("All targets processed!")
 
         return self.candidates.pop()
+
+    def checkAdmin(self, name):
+        # name comes in as DOMAIN/USER, but map is DOMAIN\\user
+        domain, user = name.split('/')
+        domainUser = "{}\\{}".format(domain.upper(), user.lower())
+        if domainUser in self.localAdminMap:
+            return self.localAdminMap[domainUser][0]
+        else:
+            return False
 
 class TargetsFileWatcher(Thread):
     def __init__(self,targetprocessor):

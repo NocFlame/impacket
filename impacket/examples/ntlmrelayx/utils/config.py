@@ -67,6 +67,11 @@ class NTLMRelayxConfig:
         self.runSocks = False
         self.socksServer = None
 
+        self.localAdminMap = None
+
+    def setLocalAdminMap(self, value):
+        self.localAdminMap = value
+
 
     def setSMB2Support(self, value):
         self.smb2support = value

