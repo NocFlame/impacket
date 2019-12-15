@@ -1,4 +1,4 @@
-FROM python:2.7-alpine
+FROM python:3-alpine
 RUN apk --update --no-cache add \
     zlib-dev \
     musl-dev \
