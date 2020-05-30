@@ -21,7 +21,7 @@ import random
 import struct
 import string
 from threading import Thread
-from six import PY2
+from six import PY2, b
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -59,7 +59,10 @@ class HTTPRelayServer(Thread):
                 if self.server.config.target is None:
                     # Reflection mode, defaults to SMB at the target, for now
                     self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % client_address[0])
-                self.target = self.server.config.target.getTarget(self.server.config.randomtargets)
+                self.target = self.server.config.target.getTarget()
+                if self.target is None:
+                    LOG.info("HTTPD: Received connection from %s, but there are no more targets left!" % client_address[0])
+                    return
                 LOG.info("HTTPD: Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
             try:
                 http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
@@ -90,7 +93,7 @@ class HTTPRelayServer(Thread):
             self.send_header('Content-type', 'application/x-ns-proxy-autoconfig')
             self.send_header('Content-Length',len(wpadResponse))
             self.end_headers()
-            self.wfile.write(wpadResponse)
+            self.wfile.write(b(wpadResponse))
             return
 
         def should_serve_wpad(self, client):
@@ -137,11 +140,15 @@ class HTTPRelayServer(Thread):
                 content = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>a</D:displayname><D:getcontentlength></D:getcontentlength><D:getcontenttype></D:getcontenttype><D:getetag></D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype><D:collection></D:collection></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
 
             messageType = 0
-            if self.headers.getheader('Authorization') is None:
-                self.do_AUTHHEAD(message='NTLM')
+            if PY2:
+                autorizationHeader = self.headers.getheader('Authorization')
+            else:
+                autorizationHeader = self.headers.get('Authorization')
+            if autorizationHeader is None:
+                self.do_AUTHHEAD(message=b'NTLM')
                 pass
             else:
-                typeX = self.headers.getheader('Authorization')
+                typeX = autorizationHeader
                 try:
                     _, blob = typeX.split('NTLM')
                     token = base64.b64decode(blob.strip())
