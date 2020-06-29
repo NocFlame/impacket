@@ -12,4 +12,4 @@ COPY . /opt/impacket
 WORKDIR /opt/impacket
 RUN pip install .
 WORKDIR /opt/impacket/examples
-CMD ["python"]
+CMD ["/bin/sh"]
